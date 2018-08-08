@@ -1,0 +1,9 @@
+<configuration name="oss_core.conf">
+    <settings>
+        <param name="script_path" value="/usr/local/freeswitch/conf/scripts/mod_oss_core.js"/>
+        <param name="api_threads_min" value="2"/>
+        <param name="api_threads_max" value="1024"/>
+        <param name="app_threads_min" value="2"/>
+        <param name="app_threads_max" value="1024"/>
+    </settings>
+</configuration>
