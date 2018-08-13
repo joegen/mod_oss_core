@@ -273,7 +273,7 @@ JS_METHOD_IMPL(switch_channel_ring_ready_func)
 	switch_channel_t* channel= js_unwrap_pointer_from_local_object<switch_channel_t>(channelParam);
 	int ret = SWITCH_STATUS_FALSE;
 	if (channel) {
-		ret = switch_channel_answer(channel);
+		ret = switch_channel_ring_ready(channel);
 	}
 	return JSInt32(ret);
 }
