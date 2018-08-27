@@ -35,15 +35,19 @@ static struct {
 	int api_threads_max;
 	int app_threads_min;
 	int app_threads_max;
+	int xml_threads_min;
+	int xml_threads_max;
 } config_items;
 
 static switch_xml_config_item_t config_settings[] = {
 	/* key, flags, ptr, default_value, syntax, helptext */
 	SWITCH_CONFIG_ITEM_STRING_STRDUP("script_path", CONFIG_REQUIRED, &config_items.script_path, "", NULL, "Path to the JavaScript file"),
-	SWITCH_CONFIG_ITEM("api_threads_min", SWITCH_CONFIG_INT, CONFIG_REQUIRED, &config_items.api_threads_min, (void *)2, NULL, NULL, "Initial number of API threads"),
-	SWITCH_CONFIG_ITEM("api_threads_max", SWITCH_CONFIG_INT, CONFIG_REQUIRED, &config_items.api_threads_max, (void *)1024, NULL, NULL, "Maximum number of API threads"),
-	SWITCH_CONFIG_ITEM("app_threads_min", SWITCH_CONFIG_INT, CONFIG_REQUIRED, &config_items.app_threads_min, (void *)2, NULL, NULL, "Initial number of application threads"),
-	SWITCH_CONFIG_ITEM("app_threads_max", SWITCH_CONFIG_INT, CONFIG_REQUIRED, &config_items.app_threads_max, (void *)1024, NULL, NULL, "Maximum number of application threads"),
+	SWITCH_CONFIG_ITEM("api_threads_min", SWITCH_CONFIG_INT, CONFIG_RELOADABLE, &config_items.api_threads_min, (void *)2, NULL, NULL, "Initial number of API threads"),
+	SWITCH_CONFIG_ITEM("api_threads_max", SWITCH_CONFIG_INT, CONFIG_RELOADABLE, &config_items.api_threads_max, (void *)1024, NULL, NULL, "Maximum number of API threads"),
+	SWITCH_CONFIG_ITEM("app_threads_min", SWITCH_CONFIG_INT, CONFIG_RELOADABLE, &config_items.app_threads_min, (void *)2, NULL, NULL, "Initial number of application threads"),
+	SWITCH_CONFIG_ITEM("app_threads_max", SWITCH_CONFIG_INT, CONFIG_RELOADABLE, &config_items.app_threads_max, (void *)1024, NULL, NULL, "Maximum number of application threads"),
+	SWITCH_CONFIG_ITEM("xml_threads_min", SWITCH_CONFIG_INT, CONFIG_RELOADABLE, &config_items.xml_threads_min, (void *)2, NULL, NULL, "Initial number of xml threads"),
+	SWITCH_CONFIG_ITEM("xml_threads_max", SWITCH_CONFIG_INT, CONFIG_RELOADABLE, &config_items.xml_threads_max, (void *)1024, NULL, NULL, "Maximum number of xml threads"),
 	SWITCH_CONFIG_ITEM_END()
 };
 
@@ -62,6 +66,7 @@ mod_oss_core_globals* mod_oss_core_globals::instance()
 		_instance->event_node = 0;
 		_instance->api_thread_pool = 0;
 		_instance->app_thread_pool = 0;
+		_instance->xml_thread_pool = 0;
 	}
 	return _instance;
 }
@@ -71,6 +76,7 @@ void mod_oss_core_globals::deleteInstance()
 	if (_instance) {
 		delete _instance->api_thread_pool;
 		delete _instance->app_thread_pool;
+		delete _instance->xml_thread_pool;
 		delete _instance;
 		_instance = 0;
 	}
@@ -219,13 +225,45 @@ static switch_xml_t switch_xml_parse_string(const std::string& xml)
 	return switch_xml_parse_file(fn.str().c_str());
 }
 
+void switch_xml_handler_callback(void* args_)
+{
+	switch_async_api_arg* args = (switch_async_api_arg*)args_;
+	assert(args);
+	assert(args->string_promise);
+	assert(!args->args.empty());
+	switch_js_func_execute("handle_switch_xml", args->args, (void*)args->string_promise.get());
+	delete args;
+}
+
 static switch_xml_t switch_xml_handler(const char *section, const char *tag_name, const char *key_name, const char *key_value, switch_event_t *params, void *user_data)
 {
 	switch_xml_t result = 0;
-	std::string json = switch_serialize_event_as_json(section, tag_name, key_name, key_value, params);
-	std::string xml = switch_js_func_execute("handle_switch_xml", json);
-	result = switch_xml_parse_string(xml);
+	switch_async_api_arg* args = new switch_async_api_arg();
+	args->string_promise = StringPromisePtr(new StringPromise());
+	args->args = switch_serialize_event_as_json(section, tag_name, key_name, key_value, params);
+	StringFuture future = args->string_promise->get_future();
+	
+	if (GLOBALS->xml_thread_pool->schedule_with_arg(switch_xml_handler_callback, (void*)args) != -1) {
+		std::string xml = future.get();
+		if (!xml.empty()) {
+			result = switch_xml_parse_string(xml);
+		}
+	}
+	
 	return result;
+}
+
+JS_METHOD_IMPL(switch_set_xml_result)
+{
+	js_method_arg_assert_size_eq(2);
+	js_method_arg_assert_object(0);
+	JSLocalObjectHandle promiseParam = js_method_arg_as_object(0);
+	StringPromise* promise = js_unwrap_pointer_from_local_object<StringPromise>(promiseParam);
+
+	if (promise) {
+		std::string xml = js_method_arg_as_std_string(1);
+		promise->set_value(xml);
+	}
 }
 
 JS_METHOD_IMPL(switch_enable_xml_handling)
@@ -370,6 +408,7 @@ SWITCH_EXPORT_JS_HANDLER(export_global_methods)
 	SWITCH_EXPORT_JS_METHOD("switch_enable_event_handling", switch_enable_event_handling);
 	SWITCH_EXPORT_JS_METHOD("switch_api_execute", switch_execute_api);
 	SWITCH_EXPORT_JS_METHOD("switch_app_execute", switch_execute_app);
+	SWITCH_EXPORT_JS_METHOD("switch_set_xml_result", switch_set_xml_result);
 }
 
 SWITCH_STANDARD_API(oss_core_json_api)
@@ -400,6 +439,7 @@ SWITCH_MODULE_RUNTIME_FUNCTION(mod_oss_core_runtime)
 
 		GLOBALS->api_thread_pool = new OSS::thread_pool(config_items.api_threads_min, config_items.api_threads_min);
 		GLOBALS->app_thread_pool = new OSS::thread_pool(config_items.app_threads_min, config_items.app_threads_min);
+		GLOBALS->xml_thread_pool = new OSS::thread_pool(config_items.xml_threads_min, config_items.xml_threads_min);
 		JS::JSIsolateManager::instance().run(pIsolate, path);
 		JS::JSIsolateManager::instance().resetRootIsolate();
 	}

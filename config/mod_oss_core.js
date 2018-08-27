@@ -8,7 +8,7 @@ var dialplan = utils.multiline(function() {
         <extension name="mod_oss_core">
            <condition field="destination_number" expression="(.*?)">
               <action application="oss_core_json_app" data='{ "method" : "ring" }'/>
-              <action application="oss_core_json_app" data='{ "method" : "answer" }'/>
+              <!--<action application="oss_core_json_app" data='{ "method" : "answer" }'/>-->
               <action application="park" data=""/>
            </condition>
         </extension>
@@ -25,10 +25,8 @@ var hadDialplan = switch_enable_xml_handling("dialplan");
 var hasEvents = switch_enable_event_handling();
 
 if (hadDialplan) {
-    switch_isolate.on("handle_switch_xml", function(args) {
-      var result = new Object();
-      result.result = dialplan;
-      return result;
+    switch_isolate.on("handle_switch_xml", function(args, promise) {
+      switch_set_xml_result(promise, dialplan);
     });
 }
 

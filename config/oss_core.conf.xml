@@ -5,5 +5,7 @@
         <param name="api_threads_max" value="1024"/>
         <param name="app_threads_min" value="2"/>
         <param name="app_threads_max" value="1024"/>
+        <param name="xml_threads_min" value="2"/>
+        <param name="xml_threads_max" value="1024"/>
     </settings>
 </configuration>

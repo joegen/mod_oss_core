@@ -26,6 +26,7 @@
 #include <sstream>
 
 #include <boost/function.hpp>
+#include <boost/thread/future.hpp>
 
 #include <OSS/UTL/Thread.h>
 #include <OSS/JS/JS.h>
@@ -45,6 +46,11 @@
 #define SWITCH_EXPORT_JS_METHOD(FUNC, METHOD) _global_->Set(v8::String::New(FUNC), v8::FunctionTemplate::New(METHOD))
 #define SWITCH_CONST_EXPORT(Name) _global_->Set(v8::String::New(#Name), v8::Integer::New(Name), v8::ReadOnly)
 
+typedef boost::promise<std::string> StringPromise;
+typedef boost::future<std::string> StringFuture;
+typedef boost::shared_ptr<StringPromise> StringPromisePtr;
+typedef boost::function<void(void*)> switch_threadpool_callback;
+
 class mod_oss_core_globals
 {
 public:
@@ -56,6 +62,7 @@ public:
 	switch_event_node_t* event_node;
 	OSS::thread_pool* api_thread_pool;
 	OSS::thread_pool* app_thread_pool;
+	OSS::thread_pool* xml_thread_pool;
 	
 protected:
 	mod_oss_core_globals() {};
@@ -69,9 +76,8 @@ struct switch_async_api_arg
 	std::string args;
 	std::string uuid;
 	JSPersistentFunctionHandle* async_cb;
+	StringPromisePtr string_promise;
 };
-
-typedef boost::function<void(void*)> switch_threadpool_callback;
 
 SWITCH_EXPORT_JS_HANDLER(export_core_api);
 SWITCH_EXPORT_JS_HANDLER(export_core_exports);
