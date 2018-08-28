@@ -48,8 +48,17 @@
 
 typedef boost::promise<std::string> StringPromise;
 typedef boost::future<std::string> StringFuture;
-typedef boost::shared_ptr<StringPromise> StringPromisePtr;
 typedef boost::function<void(void*)> switch_threadpool_callback;
+
+class session_string_promise : public StringPromise
+{
+public:
+	session_string_promise(switch_core_session_t* session_ = 0) : session(session_) {}
+	switch_core_session_t* session;
+};
+
+typedef session_string_promise SessionPromise;
+typedef boost::future<std::string> SessionFuture;
 
 class mod_oss_core_globals
 {
@@ -76,7 +85,7 @@ struct switch_async_api_arg
 	std::string args;
 	std::string uuid;
 	JSPersistentFunctionHandle* async_cb;
-	StringPromisePtr string_promise;
+	SessionPromise* session_promise;
 };
 
 SWITCH_EXPORT_JS_HANDLER(export_core_api);

@@ -229,9 +229,9 @@ void switch_xml_handler_callback(void* args_)
 {
 	switch_async_api_arg* args = (switch_async_api_arg*)args_;
 	assert(args);
-	assert(args->string_promise);
+	assert(args->session_promise);
 	assert(!args->args.empty());
-	switch_js_func_execute("handle_switch_xml", args->args, (void*)args->string_promise.get());
+	switch_js_func_execute("handle_switch_xml", args->args, (void*)args->session_promise);
 	delete args;
 }
 
@@ -239,9 +239,11 @@ static switch_xml_t switch_xml_handler(const char *section, const char *tag_name
 {
 	switch_xml_t result = 0;
 	switch_async_api_arg* args = new switch_async_api_arg();
-	args->string_promise = StringPromisePtr(new StringPromise());
+	SessionPromise* promise = new SessionPromise(0);
+	args->session_promise = promise;
+	
 	args->args = switch_serialize_event_as_json(section, tag_name, key_name, key_value, params);
-	StringFuture future = args->string_promise->get_future();
+	StringFuture future = args->session_promise->get_future();
 	
 	if (GLOBALS->xml_thread_pool->schedule_with_arg(switch_xml_handler_callback, (void*)args) != -1) {
 		std::string xml = future.get();
@@ -253,17 +255,79 @@ static switch_xml_t switch_xml_handler(const char *section, const char *tag_name
 	return result;
 }
 
-JS_METHOD_IMPL(switch_set_xml_result)
+JS_METHOD_IMPL(switch_promise_get_session)
+{
+	js_method_arg_assert_size_eq(1);
+	js_method_arg_assert_object(0);
+	JSLocalObjectHandle promiseParam = js_method_arg_as_object(0);
+	SessionPromise* promise = js_unwrap_pointer_from_local_object<SessionPromise>(promiseParam);
+
+	if (promise) {
+		JSObjectHandle obj = js_wrap_pointer_to_local_object(promise->session);
+		return obj;
+	}
+	return JSUndefined();
+}
+
+JS_METHOD_IMPL(switch_promise_set_result)
 {
 	js_method_arg_assert_size_eq(2);
 	js_method_arg_assert_object(0);
 	JSLocalObjectHandle promiseParam = js_method_arg_as_object(0);
-	StringPromise* promise = js_unwrap_pointer_from_local_object<StringPromise>(promiseParam);
+	SessionPromise* promise = js_unwrap_pointer_from_local_object<SessionPromise>(promiseParam);
+	assert(promise);
+	promise->set_value(js_method_arg_as_std_string(1));
+}
 
-	if (promise) {
-		std::string xml = js_method_arg_as_std_string(1);
-		promise->set_value(xml);
+void oss_core_json_api_callback(void* args_)
+{
+	switch_async_api_arg* args = (switch_async_api_arg*)args_;
+	assert(args);
+	assert(args->session_promise);
+	assert(!args->args.empty());
+	switch_js_func_execute("handle_switch_json_api", args->args, (void*)args->session_promise);
+	delete args;
+}
+
+SWITCH_STANDARD_API(oss_core_json_api)
+{
+	switch_async_api_arg* args = new switch_async_api_arg();
+	SessionPromise* promise = new SessionPromise(session);
+	args->session_promise = promise;
+	
+	args->args = cmd;
+	StringFuture future = args->session_promise->get_future();
+	
+	if (GLOBALS->api_thread_pool->schedule_with_arg(oss_core_json_api_callback, (void*)args) != -1) {
+		std::string result = future.get();
+		stream->write_function(stream, "%s", result.c_str());
 	}
+	delete promise;
+	return SWITCH_STATUS_SUCCESS;
+}
+
+void oss_core_json_app_callback(void* args_)
+{
+	switch_async_api_arg* args = (switch_async_api_arg*)args_;
+	assert(args);
+	assert(args->session_promise);
+	assert(!args->args.empty());
+	switch_js_func_execute("handle_switch_json_app", args->args, (void*)args->session_promise);
+	delete args;
+}
+
+SWITCH_STANDARD_APP(oss_core_json_app)
+{
+	switch_async_api_arg* args = new switch_async_api_arg();
+	SessionPromise* promise = new SessionPromise(session);
+	args->session_promise = promise;
+	
+	args->args = data;
+	StringFuture future = args->session_promise->get_future();
+	if (!args->args.empty() && GLOBALS->app_thread_pool->schedule_with_arg(oss_core_json_app_callback, (void*)args) != -1) {
+		future.get();
+	}
+	delete promise;
 }
 
 JS_METHOD_IMPL(switch_enable_xml_handling)
@@ -408,23 +472,8 @@ SWITCH_EXPORT_JS_HANDLER(export_global_methods)
 	SWITCH_EXPORT_JS_METHOD("switch_enable_event_handling", switch_enable_event_handling);
 	SWITCH_EXPORT_JS_METHOD("switch_api_execute", switch_execute_api);
 	SWITCH_EXPORT_JS_METHOD("switch_app_execute", switch_execute_app);
-	SWITCH_EXPORT_JS_METHOD("switch_set_xml_result", switch_set_xml_result);
-}
-
-SWITCH_STANDARD_API(oss_core_json_api)
-{
-	std::string json = cmd;
-	std::string result = switch_js_func_execute("handle_switch_json_api", json, (void*)session);
-	stream->write_function(stream, "%s", result.c_str());
-	return SWITCH_STATUS_SUCCESS;
-}
-
-SWITCH_STANDARD_APP(oss_core_json_app)
-{
-	if (!zstr(data)) {
-		std::string json = data;
-		switch_js_notify_event("handle_switch_json_app", json, (void*)session);
-	}
+	SWITCH_EXPORT_JS_METHOD("switch_promise_get_session", switch_promise_get_session);
+	SWITCH_EXPORT_JS_METHOD("switch_promise_set_result", switch_promise_set_result);
 }
 
 SWITCH_MODULE_RUNTIME_FUNCTION(mod_oss_core_runtime)
