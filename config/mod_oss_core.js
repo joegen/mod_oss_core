@@ -1,11 +1,18 @@
 var Timer = require("async");
 var freeswitch = require("isolate");
+var sbc = require("sbc-hook");
 
 switch_enable_xml_handling("dialplan");
 switch_enable_event_handling();
 
 switch_channel_log("notice", "mod_oss_core script started");
 //switch_channel_log("notice", JSON.stringify(switch_core_get_variables(), null, 2));
+
+switch_channel_log("notice", "Initializing SBC");
+if (sbc.sbc_initialize("/usr/local/freeswitch/conf/oss_core") ) {
+    sbc.sbc_run();
+    sbc.sbc_start_options_keep_alive(true);
+}
 
 freeswitch.on("handle_switch_xml", function(args, promise) {
   var dialplan = utils.multiline(function() {
@@ -17,7 +24,7 @@ freeswitch.on("handle_switch_xml", function(args, promise) {
           <extension name="mod_oss_core">
              <condition field="destination_number" expression="(.*?)">
                 <action application="oss_core_json_app" data='{ "method" : "ring" }'/>
-                <action application="oss_core_json_app" data='{ "method" : "answer" }'/>
+                <action application="skyswitch_caller_identity_get" data="18009556600 0007 1 7"/> 
                 <action application="park" data=""/>
              </condition>
           </extension>

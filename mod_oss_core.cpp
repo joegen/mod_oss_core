@@ -18,6 +18,7 @@
 //
 
 #include "mod_oss_core.h"
+#include "OSS/SIP/SBC/SBCManager.h"
 
 using namespace OSS;
 
@@ -55,6 +56,37 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_oss_core_load);
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_oss_core_shutdown);
 SWITCH_MODULE_RUNTIME_FUNCTION(mod_oss_core_runtime);
 SWITCH_MODULE_DEFINITION(mod_oss_core, mod_oss_core_load, mod_oss_core_shutdown, mod_oss_core_runtime);
+
+static void oss_core_logger(const std::string& log, OSS::LogPriority prio)
+{
+	switch_log_level_t log_level;
+	switch (prio)
+	{
+	case OSS::PRIO_FATAL:
+	case OSS::PRIO_CRITICAL:
+		log_level = SWITCH_LOG_CRIT;
+		break;
+	case OSS::PRIO_ERROR:
+		log_level = SWITCH_LOG_ERROR;
+		break;
+	case OSS::PRIO_WARNING:
+		log_level = SWITCH_LOG_WARNING;
+		break;
+	case OSS::PRIO_NOTICE:
+		log_level = SWITCH_LOG_NOTICE;
+		break;
+	case OSS::PRIO_INFORMATION:
+		log_level = SWITCH_LOG_INFO;
+		break;
+	case OSS::PRIO_DEBUG:
+	case OSS::PRIO_TRACE:
+		log_level = SWITCH_LOG_DEBUG;
+		break;
+	default:
+		log_level = SWITCH_LOG_DEBUG;
+	}
+	switch_log_printf(SWITCH_CHANNEL_LOG, log_level, "[oss_core] %s\n", log.c_str());
+}
 
 mod_oss_core_globals* mod_oss_core_globals::_instance = 0;
 mod_oss_core_globals* mod_oss_core_globals::instance()
@@ -489,7 +521,9 @@ SWITCH_MODULE_RUNTIME_FUNCTION(mod_oss_core_runtime)
 		GLOBALS->api_thread_pool = new OSS::thread_pool(config_items.api_threads_min, config_items.api_threads_min);
 		GLOBALS->app_thread_pool = new OSS::thread_pool(config_items.app_threads_min, config_items.app_threads_min);
 		GLOBALS->xml_thread_pool = new OSS::thread_pool(config_items.xml_threads_min, config_items.xml_threads_min);
-		JS::JSIsolateManager::instance().run(pIsolate, path);
+		
+		OSS::SIP::SBC::SBCManager::instance()->modules().run(config_items.script_path, false);
+		
 		JS::JSIsolateManager::instance().resetRootIsolate();
 	}
 	return SWITCH_STATUS_TERM;
@@ -513,6 +547,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_oss_core_load)
 		oss_core_json_app, "<JSON_command>", SAF_SUPPORT_NOMEDIA);
 	
 	OSS::OSS_init();
+	OSS::logger_init_external(boost::bind(oss_core_logger, _1, _2));
 	mod_oss_core_globals::deleteInstance();
 	mod_oss_core_globals::instance();
 	
