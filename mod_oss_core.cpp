@@ -177,6 +177,28 @@ JS_METHOD_IMPL(switch_channel_log)
 	return JSUndefined();
 }
 
+JS_METHOD_IMPL(switch_uuid_set_credential_func)
+{
+	js_method_arg_assert_size_eq(4);
+	std::string uuid = js_method_arg_as_std_string(0);
+	std::string auth_user = js_method_arg_as_std_string(1);
+	std::string auth_password = js_method_arg_as_std_string(2);
+	std::string auth_realm = js_method_arg_as_std_string(3);
+
+	switch_core_session_t* session = switch_core_session_locate(uuid.c_str());
+	if (session) {
+		switch_channel_t* channel = switch_core_session_get_channel(session);
+		if (channel) {
+			switch_channel_set_variable(channel, "sip_auth_username", auth_user.c_str());
+			switch_channel_set_variable(channel, "sip_auth_password", auth_password.c_str());
+			switch_channel_set_variable(channel, "sip_auth_realm", auth_realm.c_str());
+		}
+		switch_core_session_rwunlock(session);
+		return JSBoolean(true);
+	}
+	return JSBoolean(false);
+}
+
 static std::string switch_js_func_execute(const std::string& method, const std::string& arg, void* userData = 0)
 {
 	OSS::JSON::Object func, arguments, result;
@@ -500,6 +522,7 @@ JS_METHOD_IMPL(switch_execute_app)
 SWITCH_EXPORT_JS_HANDLER(export_global_methods)
 {
 	SWITCH_EXPORT_JS_METHOD("switch_channel_log", switch_channel_log);
+	SWITCH_EXPORT_JS_METHOD("switch_uuid_set_credential", switch_uuid_set_credential_func);
 	SWITCH_EXPORT_JS_METHOD("switch_enable_xml_handling", switch_enable_xml_handling);
 	SWITCH_EXPORT_JS_METHOD("switch_enable_event_handling", switch_enable_event_handling);
 	SWITCH_EXPORT_JS_METHOD("switch_api_execute", switch_execute_api);
