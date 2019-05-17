@@ -201,7 +201,7 @@ JS_METHOD_IMPL(switch_uuid_set_credential_func)
 
 JS_METHOD_IMPL(switch_uuid_channel_get_variable_func)
 {
-	js_method_arg_assert_size_eq(4);
+	js_method_arg_assert_size_eq(2);
 	std::string uuid = js_method_arg_as_std_string(0);
 	std::string var_name = js_method_arg_as_std_string(1);
 	std::string value;
