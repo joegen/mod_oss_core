@@ -199,6 +199,26 @@ JS_METHOD_IMPL(switch_uuid_set_credential_func)
 	return JSBoolean(false);
 }
 
+JS_METHOD_IMPL(switch_uuid_channel_get_variable_func)
+{
+	js_method_arg_assert_size_eq(4);
+	std::string uuid = js_method_arg_as_std_string(0);
+	std::string var_name = js_method_arg_as_std_string(1);
+	std::string value;
+	switch_core_session_t* session = switch_core_session_locate(uuid.c_str());
+	if (session) {
+		switch_channel_t* channel = switch_core_session_get_channel(session);
+		if (channel) {
+			const char* val = switch_channel_get_variable(channel, var_name.c_str());
+			if (!zstr(val)) {
+				value = val;
+			}
+		}
+		switch_core_session_rwunlock(session);
+	}
+	return JSString(value.c_str());
+}
+
 static std::string switch_js_func_execute(const std::string& method, const std::string& arg, void* userData = 0)
 {
 	OSS::JSON::Object func, arguments, result;
@@ -522,13 +542,15 @@ JS_METHOD_IMPL(switch_execute_app)
 SWITCH_EXPORT_JS_HANDLER(export_global_methods)
 {
 	SWITCH_EXPORT_JS_METHOD("switch_channel_log", switch_channel_log);
-	SWITCH_EXPORT_JS_METHOD("switch_uuid_set_credential", switch_uuid_set_credential_func);
 	SWITCH_EXPORT_JS_METHOD("switch_enable_xml_handling", switch_enable_xml_handling);
 	SWITCH_EXPORT_JS_METHOD("switch_enable_event_handling", switch_enable_event_handling);
 	SWITCH_EXPORT_JS_METHOD("switch_api_execute", switch_execute_api);
 	SWITCH_EXPORT_JS_METHOD("switch_app_execute", switch_execute_app);
 	SWITCH_EXPORT_JS_METHOD("switch_promise_get_session", switch_promise_get_session);
 	SWITCH_EXPORT_JS_METHOD("switch_promise_set_result", switch_promise_set_result);
+	
+	SWITCH_EXPORT_JS_METHOD("switch_uuid_set_credential", switch_uuid_set_credential_func);
+	SWITCH_EXPORT_JS_METHOD("switch_uuid_channel_get_variable", switch_uuid_channel_get_variable_func);
 }
 
 SWITCH_MODULE_RUNTIME_FUNCTION(mod_oss_core_runtime)
