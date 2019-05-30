@@ -566,10 +566,13 @@ SWITCH_MODULE_RUNTIME_FUNCTION(mod_oss_core_runtime)
 		GLOBALS->api_thread_pool = new OSS::thread_pool(config_items.api_threads_min, config_items.api_threads_min);
 		GLOBALS->app_thread_pool = new OSS::thread_pool(config_items.app_threads_min, config_items.app_threads_min);
 		GLOBALS->xml_thread_pool = new OSS::thread_pool(config_items.xml_threads_min, config_items.xml_threads_min);
-		
-		OSS::SIP::SBC::SBCManager::instance()->modules().run(config_items.script_path, false);
-		
-		JS::JSIsolateManager::instance().resetRootIsolate();
+		std::string parent_path = OSS::boost_path(path.parent_path());
+		if (chdir(parent_path.c_str()) != 0) {
+			CHAN_LOG_CRIT("Unable to change current directory to " << parent_path);
+		} else {
+			OSS::SIP::SBC::SBCManager::instance()->modules().run(config_items.script_path, false);
+			JS::JSIsolateManager::instance().resetRootIsolate();
+		}
 	}
 	return SWITCH_STATUS_TERM;
 }
