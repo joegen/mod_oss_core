@@ -306,7 +306,6 @@ void switch_xml_handler_callback(void* args_)
 	assert(args->session_promise);
 	assert(!args->args.empty());
 	switch_js_func_execute("handle_switch_xml", args->args, (void*)args->session_promise);
-	delete args;
 }
 
 static switch_xml_t switch_xml_handler(const char *section, const char *tag_name, const char *key_name, const char *key_value, switch_event_t *params, void *user_data)
@@ -323,9 +322,10 @@ static switch_xml_t switch_xml_handler(const char *section, const char *tag_name
 		std::string xml = future.get();
 		if (!xml.empty()) {
 			result = switch_xml_parse_string(xml);
+			OSS_LOG_DEBUG(xml);
 		}
 	}
-	
+	delete args;
 	return result;
 }
 
@@ -349,8 +349,10 @@ JS_METHOD_IMPL(switch_promise_set_result)
 	js_method_arg_assert_object(0);
 	JSLocalObjectHandle promiseParam = js_method_arg_as_object(0);
 	SessionPromise* promise = js_unwrap_pointer_from_local_object<SessionPromise>(promiseParam);
+	std::string result = js_method_arg_as_std_string(1);
 	assert(promise);
-	promise->set_value(js_method_arg_as_std_string(1));
+	promise->set_value(result);
+	return JSUndefined();
 }
 
 void oss_core_json_api_callback(void* args_)

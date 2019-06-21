@@ -168,6 +168,7 @@ JS_METHOD_IMPL(switch_core_session_rwunlock_func)
 	if (!session) {
 		switch_core_session_rwunlock(session);
 	}
+	return JSUndefined();
 }
 
 JS_METHOD_IMPL(switch_core_session_get_uuid_func)
@@ -301,6 +302,7 @@ JS_METHOD_IMPL(switch_channel_hangup_func)
 	if (channel) {
 		switch_channel_hangup(channel, cause);
 	}
+	return JSUndefined();
 }
 
 JS_METHOD_IMPL(switch_channel_get_state_func)
@@ -622,6 +624,7 @@ JS_METHOD_IMPL(switch_channel_set_flag_func)
 		switch_channel_flag_t flag = (switch_channel_flag_t)js_method_arg_as_int32(1);
 		switch_channel_set_flag(channel, flag);
 	}
+	return JSUndefined();
 }
 JS_METHOD_IMPL(switch_channel_test_flag_func)
 {
@@ -646,6 +649,7 @@ JS_METHOD_IMPL(switch_channel_clear_flag_func)
 		switch_channel_flag_t flag = (switch_channel_flag_t)js_method_arg_as_int32(1);
 		switch_channel_clear_flag(channel, flag);
 	}
+	return JSUndefined();
 }
 
 JS_METHOD_IMPL(switch_channel_set_flag_partner_func)
@@ -658,6 +662,7 @@ JS_METHOD_IMPL(switch_channel_set_flag_partner_func)
 		switch_channel_flag_t flag = (switch_channel_flag_t)js_method_arg_as_int32(1);
 		switch_channel_set_flag_partner(channel, flag);
 	}
+	return JSUndefined();
 }
 JS_METHOD_IMPL(switch_channel_test_flag_partner_func)
 {
@@ -682,6 +687,7 @@ JS_METHOD_IMPL(switch_channel_clear_flag_partner_func)
 		switch_channel_flag_t flag = (switch_channel_flag_t)js_method_arg_as_int32(1);
 		switch_channel_clear_flag_partner(channel, flag);
 	}
+	return JSUndefined();
 }
 
 JS_METHOD_IMPL(switch_channel_has_dtmf_func)
@@ -835,6 +841,7 @@ JS_METHOD_IMPL(switch_channel_mark_hold_func)
 		bool on = js_method_arg_as_bool(1);
 		switch_channel_mark_hold(channel, on ? SWITCH_TRUE : SWITCH_FALSE);
 	}
+	return JSUndefined();
 }
 
 SWITCH_EXPORT_JS_HANDLER(export_core_api)
